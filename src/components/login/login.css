@@ -57,6 +57,12 @@
                 font-weight: bold;
                 border-radius: 5px;
                 cursor: pointer;
+
+                &:disabled{
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                    background-color: #1f8ef19c;
+                }
             }
         }
     }

@@ -6,7 +6,10 @@
 }
 
 body{
-  background-image: url(/bg.jpg);
+  background-image: url(/Circuit.svg);
+  background-size: cover;
+  background-position: center;
+  
   display: flex;
   align-items: center;
   justify-content: center;
