@@ -1,11 +1,24 @@
-import React, { useState } from 'react';
-import './adduser.css';
-import { doc, collection, query, where, getDocs, serverTimestamp, setDoc } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
+import "./adduser.css";
+import { db } from "../../lib/firebase";
+import {
+  arrayUnion,
+  collection,
+  doc,
+  getDocs,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+  getDoc,
+} from "firebase/firestore";
+import { useState } from "react";
+import { useUserStore } from "../../lib/userStore";
 
-const AddUser = () => {
+const AddUser = ({ onUserAdded }) => {
   const [user, setUser] = useState(null);
   const [error, setError] = useState(null);
+  const { currentUser } = useUserStore();
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -15,50 +28,81 @@ const AddUser = () => {
     try {
       const userRef = collection(db, "users");
       const q = query(userRef, where("username", "==", username));
-      const querySnapshot = await getDocs(q);
+      const querySnapShot = await getDocs(q);
 
-      if (!querySnapshot.empty) {
-        setUser(querySnapshot.docs[0].data());
+      if (!querySnapShot.empty) {
+        setUser({ id: querySnapShot.docs[0].id, ...querySnapShot.docs[0].data() });
         setError(null);
       } else {
         setUser(null);
         setError("User not found");
       }
-    } catch (error) {
-      console.log(error);
+    } catch (err) {
+      console.log(err);
       setError("An error occurred while searching");
     }
   };
 
+  const createOrUpdateUserChat = async (userId, chatId, receiverId, updatedAt) => {
+    const userChatRef = doc(db, "userChats", userId);
+    const userChatDoc = await getDoc(userChatRef);
+
+    const chatData = {
+      chatId: chatId,
+      lastMessage: "",
+      receiverId: receiverId,
+      updatedAt: updatedAt,
+    };
+
+    if (userChatDoc.exists()) {
+      await updateDoc(userChatRef, {
+        chats: arrayUnion(chatData),
+      });
+    } else {
+      await setDoc(userChatRef, {
+        chats: [chatData],
+      });
+    }
+
+    onUserAdded(); // Notify parent component that user has been added
+  };
+
   const handleAddUser = async () => {
-    if (!user) return;
+    if (!user?.id || !currentUser?.id) {
+      setError("User IDs are not properly set");
+      return;
+    }
 
     const chatRef = collection(db, "chats");
+
     try {
       const newChatRef = doc(chatRef);
       await setDoc(newChatRef, {
         createdAt: serverTimestamp(),
         messages: [],
       });
-      console.log(newChatRef.id);
-      setError(null);
-    } catch (error) {
-      console.log(error);
-      setError("An error occurred while adding the user to the chat");
+
+      const updatedAt = new Date(); // Or use Timestamp.now() if you're using Firebase v9 modular SDK
+
+      await createOrUpdateUserChat(user.id, newChatRef.id, currentUser.id, updatedAt);
+      await createOrUpdateUserChat(currentUser.id, newChatRef.id, user.id, updatedAt);
+    } catch (err) {
+      console.log(err);
+      setError("An error occurred while adding the user");
     }
   };
 
   return (
-    <div className='adduser'>
+    <div className="addUser">
       <form onSubmit={handleSearch}>
-        <input type='text' placeholder='username' name='username' />
-        <button type='submit'>Search</button>
+        <input type="text" placeholder="Username" name="username" />
+        <button>Search</button>
       </form>
-      {error && <div className='error'>{error}</div>}
+      {error && <div className="error">{error}</div>}
       {user && (
-        <div className='user'>
-          <div className='detail'>
-            <img src={user?.avatar || './avatar.png'} alt='avatar' />
+        <div className="user">
+          <div className="detail">
+            <img src={user.avatar || "./avatar.png"} alt="" />
             <span>{user.username}</span>
           </div>
           <button onClick={handleAddUser}>Add User</button>

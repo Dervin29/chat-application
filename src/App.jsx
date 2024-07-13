@@ -7,18 +7,27 @@ import Login from "./components/login/Login";
 import Notification from "./components/notification/Notification";
 import { onAuthStateChanged } from "firebase/auth";
 import { useUserStore } from "./lib/userStore";
+import { useChatStore } from "./lib/chatStore";
 import { auth } from "./lib/firebase";
 
 function App() {
   const { currentUser, isLoading, fetchUserInfo } = useUserStore();
 
+  const { chatId } = useChatStore();
+
   useEffect(() => {
-    const unSub = onAuthStateChanged(auth, (user) => {
-      fetchUserInfo(user?.uid);
+    const unSub = onAuthStateChanged(auth, async (user) => {
+      try {
+        await fetchUserInfo(user?.uid);
+      } catch (error) {
+        console.error("Failed to fetch user info:", error);
+      }
     });
 
     return () => {
-      unSub();
+      if (unSub) {
+        unSub();
+      }
     };
   }, [fetchUserInfo]);
 
@@ -33,8 +42,8 @@ function App() {
       {currentUser ? (
         <>
           <List />
-          <Chat />
-          <Detail />
+          {chatId && <Chat />}
+          {chatId && <Detail />}
         </>
       ) : (
         <Login />
